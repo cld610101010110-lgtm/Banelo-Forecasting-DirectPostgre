@@ -1067,8 +1067,17 @@
                             <div class="product-category">Category: {{ product.category }}</div>
 
                             <!-- ✅ Show either Max Servings OR Dual Inventory System -->
-                            {% if product.has_recipe and (product.category == 'beverage' or product.category == 'pastries') %}
-                            <!-- For beverages and pastries WITH recipes: show max servings as "stock" -->
+                            {% if product.has_recipe and product.category == 'beverage' %}
+                            <!-- For beverages WITH recipes: show max servings as "stock" -->
+                            <div style="margin-top: 10px; background: {% if product.max_servings < 10 %}#ffebee{% elif product.max_servings < 20 %}#fff3e0{% else %}#e8f5e9{% endif %}; padding: 10px; border-radius: 8px; border-left: 3px solid {% if product.max_servings < 10 %}#F44336{% elif product.max_servings < 20 %}#FF9800{% else %}#4CAF50{% endif %};">
+                                <div class="product-stock {% if product.max_servings < 10 %}critical{% elif product.max_servings < 20 %}low{% endif %}" style="display: flex; align-items: center; gap: 8px; font-size: 14px;">
+                                    <i class="fas fa-cookie-bite" style="font-size: 16px;"></i>
+                                    <span style="font-weight: 500; color: #666;">Available:</span>
+                                    <span style="font-weight: 700; color: {% if product.max_servings < 10 %}#F44336{% elif product.max_servings < 20 %}#FF9800{% else %}#4CAF50{% endif %}; font-size: 15px;">{{ product.max_servings }} servings</span>
+                                </div>
+                            </div>
+                            {% elif product.has_recipe and product.category == 'pastries' %}
+                            <!-- For pastries WITH recipes: show max servings as "stock" -->
                             <div style="margin-top: 10px; background: {% if product.max_servings < 10 %}#ffebee{% elif product.max_servings < 20 %}#fff3e0{% else %}#e8f5e9{% endif %}; padding: 10px; border-radius: 8px; border-left: 3px solid {% if product.max_servings < 10 %}#F44336{% elif product.max_servings < 20 %}#FF9800{% else %}#4CAF50{% endif %};">
                                 <div class="product-stock {% if product.max_servings < 10 %}critical{% elif product.max_servings < 20 %}low{% endif %}" style="display: flex; align-items: center; gap: 8px; font-size: 14px;">
                                     <i class="fas fa-cookie-bite" style="font-size: 16px;"></i>
