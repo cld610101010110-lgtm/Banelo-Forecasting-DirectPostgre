@@ -5,16 +5,23 @@
 const { Pool } = require('pg');
 require('dotenv').config();
 
-const pool = new Pool({
+// Build connection config - only include password if it's set
+const connectionConfig = {
   host: process.env.DB_HOST || 'localhost',
   port: process.env.DB_PORT || 5432,
   database: process.env.DB_NAME || 'banelo_db',
   user: process.env.DB_USER || 'postgres',
-  password: process.env.DB_PASSWORD || '',
   max: 20,
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 2000,
-});
+};
+
+// Only add password if it's defined and not empty
+if (process.env.DB_PASSWORD) {
+  connectionConfig.password = process.env.DB_PASSWORD;
+}
+
+const pool = new Pool(connectionConfig);
 
 // Test connection
 pool.on('connect', () => {
