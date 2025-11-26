@@ -101,7 +101,7 @@ DATABASES = {
 # API Base URL - Update this to your Mobile POS laptop's IP
 # For same machine: http://localhost:3000
 # For network: http://192.168.x.x:3000 (Mobile POS laptop IP)
-API_BASE_URL = os.getenv('API_BASE_URL', 'http://localhost:3000')
+API_BASE_URL = os.getenv('API_BASE_URL', 'http://192.168.254.176:3000')
 API_TIMEOUT = int(os.getenv('API_TIMEOUT', '30'))
 
 
