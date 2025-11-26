@@ -30,10 +30,10 @@ from .models import Product, Recipe, RecipeIngredient, Sale, WasteLog, AuditTrai
 # ============================================
 
 def calculate_max_servings(product_firebase_id, recipe_id):
-    """Calculate maximum servings based on available ingredients"""
+    """Calculate maximum servings based on available ingredients (Legacy ORM version - kept for backward compatibility)"""
     try:
         print(f"\n━━━━━━━━━━━━━━━━━━━━━━━━")
-        print(f"🧮 Calculating max servings")
+        print(f"🧮 Calculating max servings (ORM mode)")
         print(f"   Product ID: {product_firebase_id}")
         print(f"   Recipe ID: {recipe_id}")
 
@@ -99,6 +99,63 @@ def calculate_max_servings(product_firebase_id, recipe_id):
 
     except Exception as e:
         print(f"❌ Error calculating max servings: {e}")
+        import traceback
+        traceback.print_exc()
+        return None
+
+
+def calculate_max_servings_api(recipe_data, products_dict):
+    """Calculate maximum servings based on available ingredients using API data
+
+    Args:
+        recipe_data: Recipe object from API with 'ingredients' list
+        products_dict: Dictionary of products keyed by firebase_id
+
+    Returns:
+        Integer: Maximum number of servings, or None if calculation fails
+    """
+    try:
+        ingredients = recipe_data.get('ingredients', [])
+
+        if not ingredients:
+            print(f"   ⚠️ No ingredients in recipe")
+            return 0
+
+        max_servings_list = []
+
+        for ingredient in ingredients:
+            ingredient_id = ingredient.get('ingredientFirebaseId') or ingredient.get('ingredient_firebase_id')
+            quantity_needed = float(ingredient.get('quantityNeeded') or ingredient.get('quantity_needed') or 0)
+            ingredient_name = ingredient.get('ingredientName') or ingredient.get('ingredient_name') or 'Unknown'
+
+            if not ingredient_id or quantity_needed <= 0:
+                continue
+
+            # Get ingredient product from products dict
+            ingredient_product = products_dict.get(ingredient_id)
+
+            if not ingredient_product:
+                print(f"   ⚠️ Ingredient product not found: {ingredient_name} ({ingredient_id})")
+                max_servings_list.append(0)
+                continue
+
+            # Use inventory_b (operational stock) for calculation
+            available_quantity = float(ingredient_product.get('inventory_b') or ingredient_product.get('quantity', 0) or 0)
+
+            # Calculate max servings from this ingredient
+            if quantity_needed > 0:
+                max_for_this = int(available_quantity / quantity_needed)
+            else:
+                max_for_this = 0
+
+            max_servings_list.append(max_for_this)
+
+        # Return the minimum (bottleneck ingredient)
+        result = min(max_servings_list) if max_servings_list else 0
+        return result
+
+    except Exception as e:
+        print(f"❌ Error calculating max servings (API): {e}")
         import traceback
         traceback.print_exc()
         return None
@@ -422,7 +479,9 @@ def inventory_view(request):
             recipe_info = {
                 'recipeId': recipe.get('id'),
                 'firebaseId': recipe.get('firebase_id') or recipe.get('firebaseId'),
-                'productName': recipe.get('product_name') or recipe.get('productName')
+                'productName': recipe.get('product_name') or recipe.get('productName'),
+                'ingredients': recipe.get('ingredients', []),
+                'full_recipe': recipe  # Store full recipe data for servings calculation
             }
 
             if product_id:
@@ -434,6 +493,13 @@ def inventory_view(request):
                 print(f"📋 Recipe found by Name: {product_name}")
 
         print(f"✅ Found {len(recipes_by_id)} recipes by ID, {len(recipes_by_name)} by name")
+
+        # Create products dictionary for faster lookup
+        products_dict = {}
+        for product in products:
+            firebase_id = product.get('firebase_id') or product.get('firebaseId') or ''
+            if firebase_id:
+                products_dict[firebase_id] = product
 
         # Process products data
         products_data = []
@@ -479,6 +545,7 @@ def inventory_view(request):
             # Calculate max servings for beverages and pastries with recipes
             max_servings = None
             recipe_found = False
+            recipe_info = None
             firebase_id = product.get('firebase_id') or product.get('firebaseId') or ''
             product_name = product.get('name', 'Unknown')
 
@@ -486,15 +553,20 @@ def inventory_view(request):
                 # Try matching by Firebase ID first
                 if firebase_id in recipes_by_id:
                     recipe_found = True
-                    # Note: max_servings calculation would need API call or be done server-side
-                    max_servings = None  # Will be calculated via API if needed
+                    recipe_info = recipes_by_id[firebase_id]
                     print(f"✅ Recipe matched by ID for: {product_name}")
 
                 # If not found, try matching by product name
                 elif product_name.lower().strip() in recipes_by_name:
                     recipe_found = True
-                    max_servings = None  # Will be calculated via API if needed
+                    recipe_info = recipes_by_name[product_name.lower().strip()]
                     print(f"✅ Recipe matched by NAME for: {product_name}")
+
+                # Calculate max servings if recipe found
+                if recipe_found and recipe_info:
+                    max_servings = calculate_max_servings_api(recipe_info['full_recipe'], products_dict)
+                    if max_servings is not None:
+                        print(f"   🎯 Calculated {max_servings} servings for {product_name}")
 
             # Get inventory data
             inventory_a = float(product.get('inventory_a') or product.get('inventoryA') or product.get('quantity', 0) or 0)
